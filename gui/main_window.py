@@ -1,5 +1,8 @@
-from modules.system_info import get_cpu_info, get_gpu_info
+from modules.system_info import get_cpu_info, get_gpu_info, get_top_processes
 import psutil, tkinter as tk
+import webbrowser
+import os
+import subprocess
 
 
 class TechCockpit:
@@ -21,6 +24,7 @@ class TechCockpit:
 
         btn_opts = [
             ("System Info", self.show_system_window),
+            ("Make Working Place", self.working_session),
             ("Live Monitor", self.start_live_monitor),
             ("Выход", self.root.quit),
         ]
@@ -44,6 +48,13 @@ class TechCockpit:
         self.sys_container.place(relx=0.5, rely=0.5, anchor='center')
 
         self.update_system_display()
+
+    def working_session(self):
+        webbrowser.open('https://music.yandex.ru/')
+        webbrowser.open('https://www.perplexity.ai/')
+
+        abspath = r"C:\Program Files\JetBrains\PyCharm 2025.3.2\bin\pycharm64.exe"
+        subprocess.Popen([abspath])
 
     def update_system_display(self):
         if hasattr(self, 'sys_window') and self.sys_window.winfo_exists():
@@ -96,6 +107,18 @@ class TechCockpit:
                     add_row("Temp", gpu.get('temp', 'N/A'))
                     add_row("Memory", f"{gpu.get('mem_used', 'N/A')}/{gpu.get('mem_total', 'N/A')}")
                     row += 1
+
+            processes = get_top_processes()
+
+            row += 1
+            tk.Label(self.sys_container, text="PROCESSES (TOP 5)", font=font_title, fg="white", bg="black") \
+                .grid(row=row, column=0, columnspan=2, pady=(12, 6))
+            row += 1
+
+            for i, proc in enumerate(processes[:5], 1):
+                cpu_ram = f"{proc['cpu'] } / {proc['ram']}"
+                add_row(proc['name'], cpu_ram[:20])
+
 
             self.sys_window.after(1000, self.update_system_display)
 

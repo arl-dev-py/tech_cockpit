@@ -51,3 +51,32 @@ def get_gpu_info():
     except:
         pass
     return [{'load': '0%', 'temp': '35°C (max 83°)', 'mem_used': '0MB', 'mem_total': '8GB'}]
+
+
+def get_top_processes():
+    processes = []
+    EXCLUDE = ['System Idle Process', 'System', 'smss.exe', 'csrss.exe', 'wininit.exe']
+
+    for proc in psutil.process_iter(['name', 'cpu_percent', 'memory_info']):
+        try:
+            cpu = float(proc.info['cpu_percent'])
+            if cpu > 0 and proc.info['name'] not in EXCLUDE:
+                processes.append(
+                    (proc.info['cpu_percent'], proc.info['name'], proc.info['memory_info'].rss)
+                )
+        except:
+            continue
+
+    processes.sort(key=lambda x: x[0], reverse=True)
+    result = processes[:5]
+
+    result_dicts = []
+    for elem in result:
+        process_dict = {}
+        process_dict["name"] = elem[1][:12]
+        process_dict["cpu"] = f"{elem[0]:.1f}%"
+        process_dict["ram"] = f"{elem[2] / 1024 ** 3:.1f}GB"
+        result_dicts.append(process_dict)
+
+    return result_dicts
+
