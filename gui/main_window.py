@@ -1,6 +1,7 @@
 from modules.system_info import get_cpu_info, get_gpu_info
 import psutil, tkinter as tk
 
+
 class TechCockpit:
     def __init__(self):
         self.root = tk.Tk()
@@ -34,81 +35,101 @@ class TechCockpit:
         self.status.pack(side="bottom", fill="x")
 
     def show_system_window(self):
-        font_title = ("Consolas", 14, "bold")
-        font_row = ("Consolas", 12)
+        self.sys_window = tk.Toplevel(self.root)
+        self.sys_window.configure(bg='black')
+        self.sys_window.title("Системная информация (реалтайм)")
+        self.sys_window.geometry("1200x700")
 
-        window = tk.Toplevel(self.root)
-        window.configure(bg='black')
-        window.title("Системная информация")
-        window.geometry("1000x600")
+        self.sys_container = tk.Frame(self.sys_window, bg='black')
+        self.sys_container.place(relx=0.5, rely=0.5, anchor='center')
 
-        cpu_data = get_cpu_info()
-        memory_data = psutil.virtual_memory()
-        gpu_data = get_gpu_info()
+        self.update_system_display()
 
-        container = tk.Frame(window, bg='black')
-        container.place(relx=0.5, rely=0.5, anchor='center')
+    def update_system_display(self):
+        if hasattr(self, 'sys_window') and self.sys_window.winfo_exists():
+            for widget in self.sys_container.winfo_children():
+                widget.destroy()
 
-        header = tk.Label(container, text="CPU INFO", font=font_title, fg="white", bg="black")
-        header.grid(row=0, column=0, columnspan=2, pady=(0, 6))
+            cpu_data = get_cpu_info()
+            memory_data = psutil.virtual_memory()
+            gpu_data = get_gpu_info()
 
-        row = 1
+            row = 0
+            font_title = ("Consolas", 14, "bold")
+            font_row = ("Consolas", 12)
 
-        def add_row(label_text, value_text):
-            nonlocal row
-            tk.Label(container, text=label_text, font=font_row, fg="white", bg="black", anchor="w", width=20) \
-                .grid(row=row, column=0, sticky="w", padx=10, pady=2)
-            tk.Label(container, text=value_text, font=font_row, fg="#9acd32", bg="black", anchor="e", width=25) \
-                .grid(row=row, column=1, sticky="e", padx=10, pady=2)
+            def add_row(label_text, value_text):
+                nonlocal row
+                tk.Label(self.sys_container, text=label_text, font=font_row,
+                         fg="white", bg="black", anchor="w", width=20) \
+                    .grid(row=row, column=0, sticky="w", padx=10, pady=2)
+                tk.Label(self.sys_container, text=value_text, font=font_row,
+                         fg="#9acd32", bg="black", anchor="e", width=25) \
+                    .grid(row=row, column=1, sticky="e", padx=10, pady=2)
+                row += 1
+
+            tk.Label(self.sys_container, text="CPU INFO", font=font_title, fg="white", bg="black") \
+                .grid(row=row, column=0, columnspan=2, pady=(0, 6))
             row += 1
 
-        add_row("Cores", f"{cpu_data['physical_cores']} / {cpu_data['cores']}")
-        add_row("Load", f"{cpu_data['usage']:.1f}%")
-        add_row("Temperature", cpu_data['temp'])  # 52.3°C (max 95°)
+            add_row("Cores", f"{cpu_data['cores']}")
+            add_row("Load", f"{cpu_data['usage']:.1f}%")
+            add_row("Temperature", cpu_data['temp'])
 
-        row += 1
-        header_ram = tk.Label(container, text="RAM INFO", font=font_title, fg="white", bg="black")
-        header_ram.grid(row=row, column=0, columnspan=2, pady=(12, 6))
+            row += 1
+            tk.Label(self.sys_container, text="MEMORY INFO", font=font_title, fg="white", bg="black") \
+                .grid(row=row, column=0, columnspan=2, pady=(12, 6))
+            row += 1
 
-        row += 1
-        add_row("Total RAM", f"{memory_data.total // (1024 ** 3)} GB")
-        add_row("Used RAM", f"{memory_data.percent:.1f}%")
-        add_row("Available RAM", f"{memory_data.available // (1024 ** 3)} GB")
+            add_row("Total", f"{memory_data.total // (1024 ** 3)} GB")
+            add_row("Used", f"{memory_data.percent:.1f}%")
+            add_row("Available", f"{memory_data.available // (1024 ** 3)} GB")
 
-        # GPU секция — Load/Temp/Memory БЕЗ Name
-        row += 1
-        header_gpu = tk.Label(container, text="GPU INFO", font=font_title, fg="white", bg="black")
-        header_gpu.grid(row=row, column=0, columnspan=2, pady=(12, 6))
+            row += 1
+            tk.Label(self.sys_container, text="GPU INFO", font=font_title, fg="white", bg="black") \
+                .grid(row=row, column=0, columnspan=2, pady=(12, 6))
 
-        if isinstance(gpu_data, list):
-            for i, gpu in enumerate(gpu_data, 1):
-                row += 1
-                add_row(f"GPU {i} Load", gpu.get('load', 'N/A'))  # 45%
-                add_row(f"GPU {i} Temp", gpu.get('temp', 'N/A'))  # 67°C (max 83°)
-                add_row(f"GPU {i} Memory", f"{gpu.get('mem_used', 'N/A')}/{gpu.get('mem_total', 'N/A')}")
-                row += 1  # Разделитель между GPU
+            if isinstance(gpu_data, list):
+                for i, gpu in enumerate(gpu_data, 1):
+                    row += 1
+                    add_row("Load", gpu.get('load', 'N/A'))
+                    add_row("Temp", gpu.get('temp', 'N/A'))
+                    add_row("Memory", f"{gpu.get('mem_used', 'N/A')}/{gpu.get('mem_total', 'N/A')}")
+                    row += 1
+
+            self.sys_window.after(1000, self.update_system_display)
 
     def start_live_monitor(self):
         self.live_window = tk.Toplevel(self.root)
         self.live_window.configure(bg='black')
-        self.live_window.title("Live Monitor")
-        self.live_window.geometry("800x500")
+        self.live_window.title("Live Monitor (реалтайм)")
+        self.live_window.geometry("900x600")
         self.update_live_display()
 
     def update_live_display(self):
         if hasattr(self, 'live_window') and self.live_window.winfo_exists():
             cpu_data = get_cpu_info()
             memory_data = psutil.virtual_memory()
+            gpu_data = get_gpu_info()
+
+            gpu_load = 0
+            gpu_temp = 'N/A'
+            if gpu_data and isinstance(gpu_data, list) and gpu_data:
+                if gpu_data[0].get('load', 'N/A') != 'N/A':
+                    gpu_load = float(gpu_data[0]['load'].rstrip('%'))
+                gpu_temp = gpu_data[0].get('temp', 'N/A')
+
             import datetime
             info_text = f"""🔥 LIVE STATS (обновлено: {datetime.datetime.now().strftime('%H:%M:%S')})
-CPU: {cpu_data['usage']:.1f}% | Temp: {cpu_data['temp']}
-RAM: {memory_data.percent:.1f}% ({memory_data.available // (1024 ** 3)} GB free)"""
+💻 CPU: {cpu_data['usage']:.1f}% | {cpu_data['temp']}
+🧠 MEMORY: {memory_data.percent:.1f}% ({memory_data.available // (1024 ** 3)} GB free)
+🎮 GPU: {gpu_load:.1f}% | {gpu_temp}"""
 
             try:
                 self.live_label.config(text=info_text)
             except:
-                self.live_label = tk.Label(self.live_window, text=info_text, font=("Consolas", 14),
-                                           fg="#9acd32", bg="black", padx=20, pady=20)
+                self.live_label = tk.Label(self.live_window, text=info_text, font=("Consolas", 16),
+                                           fg="#9acd32", bg="black", padx=20, pady=20, justify="left")
                 self.live_label.pack(expand=True, fill="both")
 
             self.live_window.after(1000, self.update_live_display)
