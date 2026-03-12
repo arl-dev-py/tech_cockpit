@@ -1,0 +1,20 @@
+# IDE
+.idea/
+.vscode/
+*.pyc
+__pycache__/
+
+# Windows
+$RECYCLE.BIN/
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Temp
+temp/
+tmp/
+
+# OS generated
+.DS_Store

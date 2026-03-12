@@ -1,5 +1,33 @@
+import os
 import psutil
 import subprocess
+import shutil
+import stat
+from pathlib import Path
+
+CACHE_PATHS = {
+    'windows_temp': [
+        os.environ['TEMP'],
+        r'C:\Windows\Temp'
+    ],
+    'chrome': [
+        os.path.join(os.environ['LOCALAPPDATA'], r'Google\Chrome\User Data\Default\Cache'),
+        os.path.join(os.environ['LOCALAPPDATA'], r'Google\Chrome\User Data\Default\Code Cache')
+    ],
+    'discord': [
+        os.path.join(os.environ['APPDATA'], r'discord\Cache'),
+        os.path.join(os.environ['APPDATA'], r'discord\Code Cache'),
+        os.path.join(os.environ['APPDATA'], r'discord\GPUCache')
+    ],
+    'telegram': [
+        os.path.join(os.environ['APPDATA'], r'Telegram Desktop\tdata\user_data')
+    ],
+    'steam': [
+        os.path.join(os.environ.get('PROGRAMFILES(X86)', r'C:\Program Files (x86)'), r'Steam\appcache'),
+        os.path.join(os.environ.get('PROGRAMFILES(X86)', r'C:\Program Files (x86)'), r'Steam\htmlcache'),
+        os.path.join(os.environ['LOCALAPPDATA'], r'Steam\htmlcache')
+    ]
+}
 
 
 def get_cpu_info():
@@ -11,7 +39,6 @@ def get_cpu_info():
         'temp': f"{cpu_temp}°C (max 95°)",
         'cpu_model': "Unknown"
     }
-
 
 def get_cpu_temperature():
     try:
@@ -25,7 +52,6 @@ def get_cpu_temperature():
         return "42.5"
     except:
         return "42.5"
-
 
 def get_gpu_info():
     try:
@@ -51,7 +77,6 @@ def get_gpu_info():
     except:
         pass
     return [{'load': '0%', 'temp': '35°C (max 83°)', 'mem_used': '0MB', 'mem_total': '8GB'}]
-
 
 def get_top_processes():
     processes = []
@@ -79,4 +104,48 @@ def get_top_processes():
         result_dicts.append(process_dict)
 
     return result_dicts
+
+def get_cache_size(paths: list) -> tuple[str, float]:
+    total = 0
+    for path in paths:
+        if os.path.exists(path):
+            try:
+                path_obj = Path(path)
+                for f in path_obj.rglob('*'):
+                    if f.is_file():
+                        try:
+                            total += f.stat().st_size
+                        except PermissionError:
+                            pass
+            except Exception:
+                continue
+
+    size_gb = total / (1024 ** 3)
+    return f"{size_gb:.1f} GB", size_gb
+
+def safe_clear_path(path: str) -> float:
+    if not os.path.exists(path):
+        return 0
+    size_str, size_gb = get_cache_size([path])
+    try:
+        shutil.rmtree(path, ignore_errors=True)
+        os.makedirs(path, exist_ok=True)
+        return size_gb
+    except:
+        return 0
+
+def clear_cache_paths(paths: list) -> str:
+    total_freed = 0
+    success = 0
+    cleaned_paths = 0
+    for path in paths:
+        size_str, size_gb = get_cache_size([path])
+        if size_gb > 0.01:
+            freed = safe_clear_path(path)
+            total_freed += freed
+            if freed > 0:
+                success += 1
+                cleaned_paths += 1
+    return f"Freed {total_freed:.1f} GB ({success}/{cleaned_paths})"
+
 

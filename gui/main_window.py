@@ -1,15 +1,16 @@
-from modules.system_info import get_cpu_info, get_gpu_info, get_top_processes
-import psutil, tkinter as tk
+from modules.system_info import get_cpu_info, get_gpu_info, get_top_processes, CACHE_PATHS, get_cache_size
+import psutil
+import tkinter as tk
+from tkinter import messagebox
 import webbrowser
-import os
 import subprocess
-
+import os
 
 class TechCockpit:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("TechCockpit v0.1")
-        self.root.geometry("1440x900")
+        self.root.geometry("1440x500")
         self.root.configure(bg="black")
         self.setup_ui()
 
@@ -25,8 +26,9 @@ class TechCockpit:
         btn_opts = [
             ("System Info", self.show_system_window),
             ("Make Working Place", self.working_session),
+            ("Cache Flush", self.show_cache_cleanup),
             ("Live Monitor", self.start_live_monitor),
-            ("Выход", self.root.quit),
+            ("Exit", self.root.quit),
         ]
 
         for text, cmd in btn_opts:
@@ -35,13 +37,13 @@ class TechCockpit:
                             width=40, command=cmd)
             btn.pack(fill="x", pady=8)
 
-        self.status = tk.Label(self.root, text="Готов к работе", bg="black", fg="#9acd32", anchor="w", padx=10)
+        self.status = tk.Label(self.root, text="Ready", bg="black", fg="#9acd32", anchor="w", padx=10)
         self.status.pack(side="bottom", fill="x")
 
     def show_system_window(self):
         self.sys_window = tk.Toplevel(self.root)
         self.sys_window.configure(bg='black')
-        self.sys_window.title("Системная информация (реалтайм)")
+        self.sys_window.title("SysInfo (realtime)")
         self.sys_window.geometry("1200x700")
 
         self.sys_container = tk.Frame(self.sys_window, bg='black')
@@ -53,8 +55,11 @@ class TechCockpit:
         webbrowser.open('https://music.yandex.ru/')
         webbrowser.open('https://www.perplexity.ai/')
 
-        abspath = r"C:\Program Files\JetBrains\PyCharm 2025.3.2\bin\pycharm64.exe"
-        subprocess.Popen([abspath])
+        pycharm_path = r"C:\Program Files\JetBrains\PyCharm 2025.3.2\bin\pycharm64.exe"
+        if os.path.exists(pycharm_path):
+            subprocess.Popen([pycharm_path])
+        else:
+            messagebox.showwarning("PyCharm", "Not found")
 
     def update_system_display(self):
         if hasattr(self, 'sys_window') and self.sys_window.winfo_exists():
@@ -116,16 +121,15 @@ class TechCockpit:
             row += 1
 
             for i, proc in enumerate(processes[:5], 1):
-                cpu_ram = f"{proc['cpu'] } / {proc['ram']}"
+                cpu_ram = f"{proc['cpu']} / {proc['ram']}"
                 add_row(proc['name'], cpu_ram[:20])
-
 
             self.sys_window.after(1000, self.update_system_display)
 
     def start_live_monitor(self):
         self.live_window = tk.Toplevel(self.root)
         self.live_window.configure(bg='black')
-        self.live_window.title("Live Monitor (реалтайм)")
+        self.live_window.title("Live Monitor (realtime)")
         self.live_window.geometry("900x600")
         self.update_live_display()
 
@@ -143,7 +147,7 @@ class TechCockpit:
                 gpu_temp = gpu_data[0].get('temp', 'N/A')
 
             import datetime
-            info_text = f"""🔥 LIVE STATS (обновлено: {datetime.datetime.now().strftime('%H:%M:%S')})
+            info_text = f"""🔥 LIVE STATS (updated: {datetime.datetime.now().strftime('%H:%M:%S')})
 💻 CPU: {cpu_data['usage']:.1f}% | {cpu_data['temp']}
 🧠 MEMORY: {memory_data.percent:.1f}% ({memory_data.available // (1024 ** 3)} GB free)
 🎮 GPU: {gpu_load:.1f}% | {gpu_temp}"""
@@ -157,5 +161,74 @@ class TechCockpit:
 
             self.live_window.after(1000, self.update_live_display)
 
+    def show_cache_cleanup(self):
+        self.cache_window = tk.Toplevel(self.root)
+        self.cache_window.title("Cleaning Cache")
+        self.cache_window.geometry("500x450")
+        self.cache_window.configure(bg='black')
+
+        main_frame = tk.Frame(self.cache_window, bg='black')
+        main_frame.pack(expand=True, fill='both', padx=20, pady=20)
+
+        self.cache_vars = {}
+        self.cache_checkbuttons = {}
+
+        for i, (category, paths) in enumerate(CACHE_PATHS.items()):
+            size_str, _ = get_cache_size(paths)
+            var = tk.BooleanVar(value=True)
+            self.cache_vars[category] = var
+
+            chk = tk.Checkbutton(
+                main_frame,
+                text=f"{category.replace('_', ' ').title()}: {size_str}",
+                variable=var,
+                bg='black', fg='#9acd32', selectcolor='#1a1a1a',
+                font=("Consolas", 12),
+                anchor='w'
+            )
+            chk.pack(pady=12)
+            self.cache_checkbuttons[category] = chk
+
+
+        btn = tk.Button(
+            main_frame,
+            text="Clear",
+            font=("Arial", 12),
+            height=2,
+            bg="#1a1a1a", fg="#d0d0d0",
+            activebackground="#2a2a2a", activeforeground="white",
+            width=40,
+            command=self.execute_cleanup
+        )
+        btn.pack(pady=20)
+
+    def execute_cleanup(self):
+        from modules.system_info import clear_cache_paths
+        selected_paths = []
+        total_size = 0
+
+        for category, var in self.cache_vars.items():
+            if var.get():
+                paths = CACHE_PATHS[category]
+                size_str = self.cache_checkbuttons[category].cget('text').split(': ')[1]
+                total_size += float(size_str.replace(' GB', ''))
+                selected_paths.extend(paths)
+
+        if not selected_paths:
+            messagebox.showwarning("Warning", "Choose at least one category!")
+            return
+
+        result = messagebox.askyesno(
+            "Confirmation",
+            f"Clear cache?\nWill free up: {total_size:.1f} GB"
+        )
+
+        if result:
+            freed = clear_cache_paths(selected_paths)
+            messagebox.showinfo("Ready!", freed)
+            self.cache_window.destroy()
+
     def run(self):
         self.root.mainloop()
+
+
